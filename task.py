@@ -5,4 +5,4 @@ class Task:
         self.priority = priority
         self.arrival_time = arrival_time
         self.remaining_time = burst_time
-        self.waiting_time = 0  # Add waiting time to track
+        self.waiting_time = 0 
