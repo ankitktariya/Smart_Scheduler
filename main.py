@@ -3,10 +3,9 @@ from task import Task
 from Scheduler import round_robin, sjf, priority_scheduling
 from utils import log_execution
 from gantt import draw_gantt_chart
+from deadlock import detect_deadlock
 import uuid
 import os
-import webbrowser
-import threading
 
 app = Flask(__name__)
 
@@ -20,10 +19,11 @@ def index():
         algorithm = request.form["algorithm"]
         tq = request.form.get("time_quantum", type=int)
 
+        # Create Task objects
         for name, bt, pr in zip(names, burst_times, priorities):
             tasks.append(Task(name, int(bt), int(pr)))
 
- 
+        # Scheduling
         if algorithm == "rr":
             schedule = round_robin(tasks, tq)
         elif algorithm == "sjf":
@@ -33,20 +33,26 @@ def index():
         else:
             return "Invalid Algorithm!"
 
-        
+        # Deadlock detection
+        allocation = {t.name: f"R{i}" for i, t in enumerate(tasks)}
+        requested = {t.name: f"R{(i + 1) % len(tasks)}" for i, t in enumerate(tasks)}
+        deadlocked = detect_deadlock(allocation, requested)
+
+        # Zombie & starvation detection
+        for task in tasks:
+            if task.burst_time == 0 and task.status != "completed":
+                task.status = "zombie"
+            if task.wait_time > 10:
+                task.status = "starving"
+
         filename = f"{uuid.uuid4().hex}.png"
         chart_path = os.path.join("static", filename)
         draw_gantt_chart(schedule, output_file=chart_path)
+        log_execution(schedule, "execution_log.txt")
 
-        return render_template("result.html", schedule=schedule, chart_file=filename)
+        return render_template("result.html", schedule=schedule, chart_file=filename, tasks=tasks, deadlocked=deadlocked)
 
     return render_template("index.html")
+
 if __name__ == "__main__":
-    def open_browser():
-        webbrowser.open_new("http://127.0.0.1:5000/")
-
-    
-    threading.Timer(1, open_browser).start()
-    
     app.run(debug=True)
-

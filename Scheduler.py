@@ -1,51 +1,44 @@
 def round_robin(tasks, time_quantum):
+    schedule = []
     queue = tasks.copy()
     time = 0
-    result = []
+
     while queue:
         task = queue.pop(0)
-        if task.remaining_time > time_quantum:
-            result.append((task.name, time, time + time_quantum))
-            time += time_quantum
-            task.remaining_time -= time_quantum
-            queue.append(task)
-        else:
-            result.append((task.name, time, time + task.remaining_time))
-            time += task.remaining_time
-            task.remaining_time = 0
-    return result
+        if task.burst_time > 0:
+            start = time
+            bt = min(time_quantum, task.burst_time)
+            task.burst_time -= bt
+            time += bt
+            schedule.append((task.name, start, time))
+            task.wait_time += start - task.wait_time
+            if task.burst_time > 0:
+                queue.append(task)
+            else:
+                task.status = "completed"  # ✅ Only if it really ran
+    return schedule
+
 
 def sjf(tasks):
-    tasks.sort(key=lambda t: t.burst_time)
+    tasks = sorted(tasks, key=lambda x: x.burst_time)
     time = 0
-    result = []
+    schedule = []
     for task in tasks:
-        result.append((task.name, time, time + task.burst_time))
+        schedule.append((task.name, time, time + task.burst_time))
         time += task.burst_time
-    return result
+        task.status = "completed"
+    return schedule
+
 
 def priority_scheduling(tasks):
     time = 0
-    result = []
-    aging_rate = 1 
-    while tasks:
-       
-        tasks.sort(key=lambda t: (t.priority, t.arrival_time))
-
-       
-        current_task = tasks.pop(0)
-
- 
-        result.append((current_task.name, time, time + current_task.burst_time))
-        time += current_task.burst_time
-
-      
-        for task in tasks:
-            task.waiting_time += current_task.burst_time 
-
-            
-            if task.waiting_time >= 5: 
-                task.priority = max(task.priority - aging_rate, 1)  
-
-    return result
-
+    schedule = []
+    tasks = sorted(tasks, key=lambda x: (x.priority, x.wait_time))
+    for task in tasks:
+        # Aging logic: wait_time > 5 => priority boost
+        if task.wait_time > 5:
+            task.priority -= 1
+        schedule.append((task.name, time, time + task.burst_time))
+        time += task.burst_time
+        task.status = "completed"
+    return schedule
